@@ -54,8 +54,7 @@ All commands should be executed via `uv` or inside the activated virtual environ
 - **Database Models:** Singular nouns for class names (e.g., `User`, `Post`), plural for `__tablename__` (e.g., `users`, `posts`).
 - **Pydantic Schemas:** Use clear suffixes like `Create`, `Update`, `Read`, `Response` to distinguish from SQLAlchemy models (e.g., `UserCreate`, `UserResponse`).
 
-### Formatting & Linting (Ruff)
-- **Line Length:** 88 characters (Black standard).
+### Formatting & Linting
 - **Quotes:** Use double quotes `"` for strings. Single quotes `'` are acceptable for internal dictionary keys but standard is double.
 - **Docstrings:** Use Google-style docstrings or standard standard triple-quote `"""` descriptions for complex logic. Avoid useless docstrings (e.g. `"""Gets user"""` on `def get_user()`).
 

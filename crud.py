@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -50,7 +50,43 @@ async def delete_task_category(db: AsyncSession, category_id: int) -> bool:
 # Hard Routine CRUD
 
 
+async def check_hard_routine_conflicts(db: AsyncSession, weekdays: list[models.Weekday], start_time: time, duration: int, exclude_routine_id: int | None = None) -> list[str]:
+    warnings = []
+    today = datetime.today().date()
+    routine_start_dt = datetime.combine(today, start_time)
+
+    # Check overlaps with existing active HardRoutines
+    query = select(models.HardRoutine).filter(models.HardRoutine.is_active)
+    if exclude_routine_id:
+        query = query.filter(models.HardRoutine.id != exclude_routine_id)
+
+    existing_routines = (await db.execute(query)).scalars().all()
+    weekday_values = [w.value for w in weekdays]
+
+    for existing in existing_routines:
+        existing_weekdays = [w.value for w in existing.weekdays]
+        if any(w in existing_weekdays for w in weekday_values):
+            existing_start_dt = datetime.combine(today, existing.start_time)
+            if _time_overlaps(routine_start_dt, duration, existing_start_dt, existing.duration):
+                warnings.append(f"Hard routine overlaps with existing active routine '{existing.name}'.")
+
+    # Check overlaps with scheduled Tasks
+    tasks = (await db.execute(select(models.Task))).scalars().all()
+    for task in tasks:
+        task_day = task.scheduled_start.strftime("%A").lower()
+        if task_day in weekday_values:
+            task_time_start = datetime.combine(today, task.scheduled_start.time())
+            if _time_overlaps(routine_start_dt, duration, task_time_start, task.estimated_duration):
+                warnings.append(f"Hard routine overlaps with existing task '{task.title}' on {task_day.capitalize()}.")
+
+    return warnings
+
+
 async def create_hard_routine(db: AsyncSession, routine: schemas.HardRoutineCreate) -> models.HardRoutine:
+    warnings = await check_hard_routine_conflicts(db, routine.weekdays, routine.start_time, routine.duration)
+    if warnings:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail={"message": "Scheduling conflict detected for hard routine.", "warnings": warnings})
+
     db_routine = models.HardRoutine(**routine.model_dump())
     db.add(db_routine)
     await db.commit()
@@ -67,7 +103,41 @@ async def get_hard_routnine(db: AsyncSession, hard_routine_id: int = 0) -> model
     return await db.get(models.HardRoutine, hard_routine_id)
 
 
-# Task CRUD and Scheduling Logic
+async def update_hard_routine(db: AsyncSession, hard_routine_id: int, routine_update: schemas.HardRoutineUpdate) -> models.HardRoutine | None:
+    db_routine = await db.get(models.HardRoutine, hard_routine_id)
+
+    if not db_routine:
+        return None
+
+    update_data = routine_update.model_dump(exclude_unset=True)
+
+    new_weekdays = update_data.get("weekdays", db_routine.weekdays)
+    new_start_time = update_data.get("start_time", db_routine.start_time)
+    new_duration = update_data.get("duration", db_routine.duration)
+    new_is_active = update_data.get("is_active", db_routine.is_active)
+
+    if new_is_active:
+        warnings = await check_hard_routine_conflicts(db, new_weekdays, new_start_time, new_duration, exclude_routine_id=hard_routine_id)
+        if warnings:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail={"message": "Scheduling conflict detected for hard routine update.", "warnings": warnings})
+
+    for key, value in update_data.items():
+        setattr(db_routine, key, value)
+
+    await db.commit()
+    await db.refresh(db_routine)
+    return db_routine
+
+
+async def delete_hard_routine(db: AsyncSession, hard_routine_id: int) -> bool:
+    hard_routine = db.get(models.HardRoutine, hard_routine_id)
+    if not hard_routine:
+        return False
+    await db.delete(hard_routine)
+    db.commit()
+    return True
+
+    # Task CRUD and Scheduling Logic
 
 
 def _time_overlaps(start1: datetime, duration1: int, start2: datetime, duration2: int) -> bool:
@@ -93,13 +163,12 @@ async def check_schedule_conflicts(db: AsyncSession, scheduled_start: datetime, 
 
     # Check overlaps with Hard Routines
     weekday_str = scheduled_start.strftime("%A").lower()
-    routines = (await db.execute(select(models.HardRoutine).filter(models.HardRoutine.is_active == True))).scalars().all()
+    routines = (await db.execute(select(models.HardRoutine).filter(models.HardRoutine.is_active))).scalars().all()
 
     for routine in routines:
         if weekday_str in [w.value for w in routine.weekdays]:
             # Convert routine start_time to datetime on the same day
             routine_start = datetime.combine(scheduled_date_val, routine.start_time)
-            routine_end = routine_start + timedelta(minutes=routine.duration)
             if _time_overlaps(scheduled_start, estimated_duration, routine_start, routine.duration):
                 warnings.append(f"Task overlaps with hard routine '{routine.name}'. You might not be able to do the hard routine at all you will miss it, r u sure?")
 
