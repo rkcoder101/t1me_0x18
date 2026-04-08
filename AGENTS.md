@@ -9,8 +9,6 @@ This document (`AGENTS.md`) contains standard operating procedures, architectura
 - **ORM / Database:** SQLAlchemy 2.0 (Async mode) + asyncpg + PostgreSQL
 - **Migrations:** Alembic
 - **Package Manager:** uv
-- **Linting & Formatting:** Ruff
-- **Testing:** pytest (with pytest-asyncio)
 
 Additional project context:
 
@@ -32,21 +30,9 @@ All commands should be executed via `uv` or inside the activated virtual environ
 - **Add Dependency:** `uv add <package_name>`
 - **Add Dev Dependency:** `uv add --dev <package_name>`
 
-### Linting & Formatting
-- **Check Linting:** `uv run ruff check .`
-- **Fix Linting Issues:** `uv run ruff check --fix .`
-- **Format Code:** `uv run ruff format .`
-
-### Testing
-- **Run All Tests:** `uv run pytest`
-- **Run Specific Test File:** `uv run pytest path/to/test_file.py`
-- **Run a Single Test (Targeted):** `uv run pytest path/to/test_file.py::test_function_name -v -s`
-- **Run Tests with Coverage:** `uv run pytest --cov=app --cov-report=term-missing`
 
 ### Database & Migrations
-- **Generate Migration:** `uv run alembic revision --autogenerate -m "migration description"`
-- **Apply Migrations:** `uv run alembic upgrade head`
-- **Rollback Migration:** `uv run alembic downgrade -1`
+- **Migrations** Do not generate or run migrations, let the developer handle them.
 
 ---
 
@@ -54,6 +40,7 @@ All commands should be executed via `uv` or inside the activated virtual environ
 
 ### Typing & Type Hinting
 - **Strict Typing:** All functions, methods, and variables must be fully typed.
+- **Function Signatures:** Keep function signatures in a single line.
 - **Python 3.12 Features:** Use modern Python typing features:
   - Use `X | Y` instead of `Union[X, Y]`.
   - Use built-in generics like `list[str]` and `dict[str, int]` instead of `List` and `Dict` from `typing`.
@@ -84,7 +71,7 @@ All commands should be executed via `uv` or inside the activated virtual environ
 - **Engine & Sessions:** Use `create_async_engine` and `async_sessionmaker`.
 - **Query 2.0 Style:** NEVER use legacy `session.query(Model)`. 
   - Instead, use `sqlalchemy.select`, `update`, `delete`, and `insert`.
-  - Example: `result = await session.execute(select(User).where(User.id == user_id))`
+  - Example: `result = await session.get(User,user_id)`
   - Use `result.scalars().first()` or `result.scalars().all()`.
 - **No Blocking Operations:** Ensure all database I/O is awaited. Avoid blocking the main event loop.
 
@@ -100,7 +87,6 @@ All commands should be executed via `uv` or inside the activated virtual environ
 - **Logging:** Use standard Python `logging` or a structured logger (like `structlog` or `loguru`). Log meaningful context (user_id, action, etc.) on `ERROR` and `WARNING`.
 
 ## 4. AI Agent Guidelines
-- **Self-Correction:** Run type-checkers and linters before proposing changes. 
-- **File Edits:** When using edit tools, maintain the existing indentation format precisely.
+- **Formatting of code** Do not format the part of the codebase which is not touched by your change.
 - **Assumptions:** Never assume the presence of a library not found in `pyproject.toml` or `uv.lock`. If necessary, propose adding it first.
 - **Code Context:** Review the surrounding project architecture before suggesting sweeping refactors. Mimic the existing structure (e.g., domain-driven vs. layered architecture).
