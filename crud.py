@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, time
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException, status
 
@@ -12,9 +13,15 @@ import schemas
 async def create_task_category(db: AsyncSession, category: schemas.TaskCategoryCreate) -> models.TaskCategory:
     db_category = models.TaskCategory(**category.model_dump())
     db.add(db_category)
-    await db.commit()
-    await db.refresh(db_category)
-    return db_category
+    try:
+        await db.commit()
+        await db.refresh(db_category)
+        return db_category
+    except IntegrityError as e:
+        await db.rollback()
+        if "unique constraint" in str(e.orig).lower():
+            raise HTTPException(status_code=400, detail=f"Task Category with name {db_category.name} already exists.")
+        raise HTTPException(status_code=400, detail="Database constraint error.")
 
 
 async def get_task_categories(db: AsyncSession, skip: int = 0, limit: int = 100) -> list[models.TaskCategory]:
@@ -33,9 +40,15 @@ async def update_task_category(db: AsyncSession, category_id: int, category_upda
     update_data = category_update.model_dump(exclude_unset=True)
     for key, value in update_data.items():
         setattr(db_category, key, value)
-    await db.commit()
-    await db.refresh(db_category)
-    return db_category
+    try:
+        await db.commit()
+        await db.refresh(db_category)
+        return db_category
+    except IntegrityError as e:
+        await db.rollback()
+        if "unique constraint" in str(e.orig).lower():
+            raise HTTPException(status_code=400, detail=f"Task Category with name {db_category.name} already exists.")
+        raise HTTPException(status_code=400, detail="Database constraint error.")
 
 
 async def delete_task_category(db: AsyncSession, category_id: int) -> bool:
@@ -77,7 +90,7 @@ async def check_hard_routine_conflicts(db: AsyncSession, weekdays: list[models.W
         if task_day in weekday_values:
             task_time_start = datetime.combine(today, task.scheduled_start.time())
             if _time_overlaps(routine_start_dt, duration, task_time_start, task.estimated_duration):
-                warnings.append(f"Hard routine overlaps with existing task '{task.title}' on {task_day.capitalize()}.")
+                warnings.append(f"Hard routine overlaps with existing task '{task.title}' on {task_day.capitalize()}")
 
     return warnings
 
@@ -89,9 +102,15 @@ async def create_hard_routine(db: AsyncSession, routine: schemas.HardRoutineCrea
 
     db_routine = models.HardRoutine(**routine.model_dump())
     db.add(db_routine)
-    await db.commit()
-    await db.refresh(db_routine)
-    return db_routine
+    try:
+        await db.commit()
+        await db.refresh(db_routine)
+        return db_routine
+    except IntegrityError as e:
+        await db.rollback()
+        if "unique constraint" in str(e.orig).lower():
+            raise HTTPException(status_code=400, detail=f"Hard Routine with name {db_routine.name} already exists.")
+        raise HTTPException(status_code=400, detail="Database constraint error.")
 
 
 async def get_hard_routines(db: AsyncSession, skip: int = 0, limit: int = 100) -> list[models.HardRoutine]:
@@ -99,7 +118,7 @@ async def get_hard_routines(db: AsyncSession, skip: int = 0, limit: int = 100) -
     return list(result.scalars().all())
 
 
-async def get_hard_routnine(db: AsyncSession, hard_routine_id: int = 0) -> models.HardRoutine | None:
+async def get_hard_routine(db: AsyncSession, hard_routine_id: int = 0) -> models.HardRoutine | None:
     return await db.get(models.HardRoutine, hard_routine_id)
 
 
@@ -123,10 +142,17 @@ async def update_hard_routine(db: AsyncSession, hard_routine_id: int, routine_up
 
     for key, value in update_data.items():
         setattr(db_routine, key, value)
+    try:
+        await db.commit()
+        await db.refresh(db_routine)
+        return db_routine
+    except IntegrityError as e:
+        await db.rollback()
+        name = update_data.get("name")
+        if "unique constraint" in str(e.orig).lower():
+            raise HTTPException(status_code=400, detail=f"Routine with name {name} already exists.")
 
-    await db.commit()
-    await db.refresh(db_routine)
-    return db_routine
+        raise HTTPException(status_code=400, detail="Database constraint error.")
 
 
 async def delete_hard_routine(db: AsyncSession, hard_routine_id: int) -> bool:
@@ -141,6 +167,8 @@ async def delete_hard_routine(db: AsyncSession, hard_routine_id: int) -> bool:
 
 
 def _time_overlaps(start1: datetime, duration1: int, start2: datetime, duration2: int) -> bool:
+    start1 = start1.replace(tzinfo=None)
+    start2 = start2.replace(tzinfo=None)
     end1 = start1 + timedelta(minutes=duration1)
     end2 = start2 + timedelta(minutes=duration2)
     return max(start1, start2) < min(end1, end2)
@@ -215,6 +243,10 @@ async def create_task(db: AsyncSession, task: schemas.TaskCreate) -> models.Task
 async def get_tasks(db: AsyncSession, skip: int = 0, limit: int = 100) -> list[models.Task]:
     result = await db.execute(select(models.Task).offset(skip).limit(limit))
     return list(result.scalars().all())
+
+
+async def get_task(db: AsyncSession, task_id: int = 0) -> models.Task | None:
+    return await db.get(models.Task, task_id)
 
 
 async def update_task(db: AsyncSession, task_id: int, task_update: schemas.TaskUpdate) -> models.Task | None:
