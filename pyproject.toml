@@ -13,3 +13,4 @@ dependencies = [
 ]
 [tool.ruff]
 line-length = 200
+extend-exclude = ["alembic/versions/*"]
