@@ -28,6 +28,7 @@ if config.config_file_name is not None:
 # for 'autogenerate' support
 
 target_metadata = Base.metadata
+import models  # noqa: F401
 
 
 def run_migrations_offline() -> None:
