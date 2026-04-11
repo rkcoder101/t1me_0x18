@@ -46,8 +46,9 @@ async def update_task_category(db: AsyncSession, category_id: int, category_upda
         return db_category
     except IntegrityError as e:
         await db.rollback()
-        if "unique constraint" in str(e.orig).lower():
-            raise HTTPException(status_code=400, detail=f"Task Category with name {db_category.name} already exists.")
+        name = update_data.get("name", None)
+        if "unique constraint" in str(e.orig).lower() and name:
+            raise HTTPException(status_code=400, detail=f"Task Category with name {name} already exists.")
         raise HTTPException(status_code=400, detail="Database constraint error.")
 
 
@@ -148,8 +149,8 @@ async def update_hard_routine(db: AsyncSession, hard_routine_id: int, routine_up
         return db_routine
     except IntegrityError as e:
         await db.rollback()
-        name = update_data.get("name")
-        if "unique constraint" in str(e.orig).lower():
+        name = update_data.get("name", None)
+        if "unique constraint" in str(e.orig).lower() and name:
             raise HTTPException(status_code=400, detail=f"Routine with name {name} already exists.")
 
         raise HTTPException(status_code=400, detail="Database constraint error.")
@@ -198,7 +199,7 @@ async def check_schedule_conflicts(db: AsyncSession, scheduled_start: datetime, 
             # Convert routine start_time to datetime on the same day
             routine_start = datetime.combine(scheduled_date_val, routine.start_time)
             if _time_overlaps(scheduled_start, estimated_duration, routine_start, routine.duration):
-                warnings.append(f"Task overlaps with hard routine '{routine.name}'. You might not be able to do the hard routine at all you will miss it, r u sure?")
+                warnings.append(f"Task overlaps with hard routine '{routine.name}'. You might not be able to do the routine at all. Please reschedule ")
 
     return warnings
 
@@ -225,7 +226,7 @@ async def create_task(db: AsyncSession, task: schemas.TaskCreate) -> models.Task
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail={
-                "message": "Scheduling conflict detected. Please reschedule or use force=true to bypass.",
+                "message": "Scheduling conflict detected. Please reschedule.",
                 "warnings": warnings,
             },
         )
