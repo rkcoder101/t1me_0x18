@@ -33,7 +33,7 @@ class TaskCategoryResponse(TaskCategoryBase):
 # Hard Routine Schemas
 class HardRoutineBase(BaseModel):
     name: str
-    weekdays: list[Weekday]
+    weekdays: set[Weekday] = Field(max_length=7)
     start_time: time
     duration: int = Field(gt=0)
     is_active: bool = True
@@ -45,7 +45,7 @@ class HardRoutineCreate(HardRoutineBase):
 
 class HardRoutineUpdate(BaseModel):
     name: str | None = None
-    weekdays: list[Weekday] | None = None
+    weekdays: set[Weekday] | None = Field(None, max_length=7)
     start_time: time | None = None
     duration: int | None = Field(None, gt=0)
     is_active: bool | None = None

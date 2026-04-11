@@ -7,13 +7,13 @@ from database import Base
 
 
 class Weekday(str, Enum):
-    sunday = "sunday"
-    monday = "monday"
-    tuesday = "tuesday"
-    wednesday = "wednesday"
-    thursday = "thursday"
-    friday = "friday"
-    saturday = "saturday"
+    mon = "mon"
+    tue = "tue"
+    wed = "wed"
+    thu = "thu"
+    fri = "fri"
+    sat = "sat"
+    sun = "sun"
 
 
 class Flexibility(str, Enum):

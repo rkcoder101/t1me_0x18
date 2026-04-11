@@ -64,7 +64,7 @@ async def delete_task_category(db: AsyncSession, category_id: int) -> bool:
 # Hard Routine CRUD
 
 
-async def check_hard_routine_conflicts(db: AsyncSession, weekdays: list[models.Weekday], start_time: time, duration: int, exclude_routine_id: int | None = None) -> list[str]:
+async def check_hard_routine_conflicts(db: AsyncSession, weekdays: set[models.Weekday], start_time: time, duration: int, exclude_routine_id: int | None = None) -> list[str]:
     warnings = []
     today = datetime.today().date()
     routine_start_dt = datetime.combine(today, start_time)
@@ -87,7 +87,7 @@ async def check_hard_routine_conflicts(db: AsyncSession, weekdays: list[models.W
     # Check overlaps with scheduled Tasks
     tasks = (await db.execute(select(models.Task))).scalars().all()
     for task in tasks:
-        task_day = task.scheduled_start.strftime("%A").lower()
+        task_day = task.scheduled_start.strftime("%a").lower()
         if task_day in weekday_values:
             task_time_start = datetime.combine(today, task.scheduled_start.time())
             if _time_overlaps(routine_start_dt, duration, task_time_start, task.estimated_duration):
@@ -191,7 +191,7 @@ async def check_schedule_conflicts(db: AsyncSession, scheduled_start: datetime, 
             warnings.append(f"Task overlaps with existing task '{task.title}' ({task.scheduled_start.strftime('%H:%M')} - {task_end.strftime('%H:%M')}).")
 
     # Check overlaps with Hard Routines
-    weekday_str = scheduled_start.strftime("%A").lower()
+    weekday_str = scheduled_start.strftime("%a").lower()
     routines = (await db.execute(select(models.HardRoutine).filter(models.HardRoutine.is_active))).scalars().all()
 
     for routine in routines:
