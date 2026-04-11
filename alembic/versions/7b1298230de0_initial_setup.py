@@ -1,8 +1,8 @@
-"""initial database setup
+"""initial setup
 
-Revision ID: 275f2b972170
+Revision ID: 7b1298230de0
 Revises: 
-Create Date: 2026-04-10 22:56:52.836661
+Create Date: 2026-04-11 14:50:55.208097
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision: str = '275f2b972170'
+revision: str = '7b1298230de0'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -24,7 +24,7 @@ def upgrade() -> None:
     op.create_table('hard_routines',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('name', sa.String(), nullable=False),
-    sa.Column('weekdays', postgresql.ARRAY(sa.Enum('sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', name='weekday_enum')), nullable=False),
+    sa.Column('weekdays', postgresql.ARRAY(sa.Enum('mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun', name='weekday_enum')), nullable=False),
     sa.Column('start_time', sa.Time(timezone=True), nullable=False),
     sa.Column('duration', sa.Integer(), nullable=False),
     sa.Column('is_active', sa.Boolean(), nullable=True),
