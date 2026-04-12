@@ -91,22 +91,14 @@ class Task(Base):
     estimated_duration = Column(Integer, nullable=False)
     scheduled_date = Column(Date, nullable=False)
     actual_start = Column(DateTime(timezone=True), nullable=True)
+    actual_end = Column(DateTime(timezone=True), nullable=True)
     actual_duration = Column(Integer, nullable=True)
     actual_date = Column(Date, nullable=True)
     priority = Column(Integer, nullable=False, default=3)
     status = Column(SAEnum(Status, name="status_enum"), nullable=False, default=Status.scheduled)
+    last_started_at = Column(DateTime(timezone=True), nullable=True)
+    parent_task_id = Column(Integer, ForeignKey("tasks.id"), nullable=True)
 
     category = relationship("TaskCategory", back_populates="tasks")
-    segments = relationship("TaskSegment", back_populates="task", cascade="all, delete-orphan")
-
-
-class TaskSegment(Base):
-    __tablename__ = "task_segments"
-
-    id = Column(Integer, primary_key=True)
-    task_id = Column(Integer, ForeignKey("tasks.id", ondelete="CASCADE"), nullable=False)
-    start_time = Column(DateTime(timezone=True), nullable=False)
-    end_time = Column(DateTime(timezone=True), nullable=True)
-    duration = Column(Integer, nullable=True)
-
-    task = relationship("Task", back_populates="segments")
+    parent = relationship("Task", remote_side=[id], back_populates="split_tasks")
+    split_tasks = relationship("Task", back_populates="parent")

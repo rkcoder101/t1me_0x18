@@ -67,6 +67,7 @@ class TaskBase(BaseModel):
     scheduled_start: datetime
     estimated_duration: int = Field(gt=0)
     priority: int = Field(3, ge=1, le=5)
+    parent_task_id: int | None = None
 
 
 class TaskCreate(TaskBase):
@@ -92,6 +93,7 @@ class TaskUpdate(BaseModel):
     actual_start: datetime | None = None
     actual_end: datetime | None = None
     actual_duration: int | None = None
+    last_started_at: datetime | None = None
 
     @field_validator("scheduled_start")
     @classmethod
@@ -103,24 +105,15 @@ class TaskUpdate(BaseModel):
         return v
 
 
-class TaskSegmentResponse(BaseModel):
-    id: int
-    task_id: int
-    start_time: datetime
-    end_time: datetime | None = None
-    duration: int | None = None
-
-    model_config = ConfigDict(from_attributes=True)
-
-
 class TaskResponse(TaskBase):
     id: int
     scheduled_date: date
     actual_start: datetime | None = None
+    actual_end: datetime | None = None
     actual_duration: int | None = None
     actual_date: date | None = None
     status: Status
-    segments: list[TaskSegmentResponse] = []
+    last_started_at: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
