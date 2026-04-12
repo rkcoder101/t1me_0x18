@@ -31,9 +31,27 @@ class Energy(str, Enum):
 class Status(str, Enum):
     scheduled = "scheduled"
     in_progress = "in-progress"
+    paused = "paused"
     completed = "completed"
     skipped = "skipped"
     cancelled = "cancelled"
+
+
+class UserProfile(Base):
+    __tablename__ = "user_profiles"
+
+    id = Column(Integer, primary_key=True)
+    default_work_start = Column(Time(timezone=True), nullable=False)
+    default_sleep_start = Column(Time(timezone=True), nullable=False)
+    timezone = Column(String, nullable=False, default="UTC")
+
+
+class DailySchedule(Base):
+    __tablename__ = "daily_schedules"
+
+    date = Column(Date, primary_key=True)
+    work_start = Column(Time(timezone=True), nullable=False)
+    sleep_start = Column(Time(timezone=True), nullable=False)
 
 
 class TaskCategory(Base):
@@ -79,3 +97,16 @@ class Task(Base):
     status = Column(SAEnum(Status, name="status_enum"), nullable=False, default=Status.scheduled)
 
     category = relationship("TaskCategory", back_populates="tasks")
+    segments = relationship("TaskSegment", back_populates="task", cascade="all, delete-orphan")
+
+
+class TaskSegment(Base):
+    __tablename__ = "task_segments"
+
+    id = Column(Integer, primary_key=True)
+    task_id = Column(Integer, ForeignKey("tasks.id", ondelete="CASCADE"), nullable=False)
+    start_time = Column(DateTime(timezone=True), nullable=False)
+    end_time = Column(DateTime(timezone=True), nullable=True)
+    duration = Column(Integer, nullable=True)
+
+    task = relationship("Task", back_populates="segments")

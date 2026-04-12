@@ -1,5 +1,5 @@
-from datetime import date, datetime, time
-from pydantic import BaseModel, Field, ConfigDict
+from datetime import date, datetime, time, timezone
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 from models import Energy, Flexibility, Status, Weekday
 
@@ -70,7 +70,13 @@ class TaskBase(BaseModel):
 
 
 class TaskCreate(TaskBase):
-    pass
+    @field_validator("scheduled_start")
+    @classmethod
+    def check_start_time(cls, v: datetime) -> datetime:
+        now = datetime.now(timezone.utc)
+        if v < now:
+            raise ValueError("Scheduled start time cannot be in the past.")
+        return v
 
 
 class TaskUpdate(BaseModel):
@@ -87,14 +93,76 @@ class TaskUpdate(BaseModel):
     actual_end: datetime | None = None
     actual_duration: int | None = None
 
+    @field_validator("scheduled_start")
+    @classmethod
+    def check_start_time(cls, v: datetime | None) -> datetime | None:
+        if v is not None:
+            now = datetime.now(timezone.utc)
+            if v < now:
+                raise ValueError("Scheduled start time cannot be in the past.")
+        return v
+
+
+class TaskSegmentResponse(BaseModel):
+    id: int
+    task_id: int
+    start_time: datetime
+    end_time: datetime | None = None
+    duration: int | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
 
 class TaskResponse(TaskBase):
     id: int
     scheduled_date: date
     actual_start: datetime | None = None
-    actual_end: datetime | None = None
     actual_duration: int | None = None
     actual_date: date | None = None
     status: Status
+    segments: list[TaskSegmentResponse] = []
 
+    model_config = ConfigDict(from_attributes=True)
+
+
+# User Profile Schemas
+class UserProfileBase(BaseModel):
+    default_work_start: time
+    default_sleep_start: time
+    timezone: str = "UTC"
+
+
+class UserProfileCreate(UserProfileBase):
+    pass
+
+
+class UserProfileUpdate(BaseModel):
+    default_work_start: time | None = None
+    default_sleep_start: time | None = None
+    timezone: str | None = None
+
+
+class UserProfileResponse(UserProfileBase):
+    id: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# Daily Schedule Schemas
+class DailyScheduleBase(BaseModel):
+    date: date
+    work_start: time
+    sleep_start: time
+
+
+class DailyScheduleCreate(DailyScheduleBase):
+    pass
+
+
+class DailyScheduleUpdate(BaseModel):
+    work_start: time | None = None
+    sleep_start: time | None = None
+
+
+class DailyScheduleResponse(DailyScheduleBase):
     model_config = ConfigDict(from_attributes=True)
