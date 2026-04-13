@@ -53,6 +53,58 @@ def calculate_free_blocks(start_time: datetime, duration: int, obstacles: list[t
     return parts
 
 
+async def _get_hard_routine_obstacles(db: AsyncSession, target_date: datetime.date) -> list[tuple[datetime, datetime]]:
+    """Fetches all active Hard Routines for a given date and returns them as datetime obstacle blocks."""
+    obstacles = []
+    weekday_str = target_date.strftime("%a").lower()
+    routines = (await db.execute(select(models.HardRoutine).filter(models.HardRoutine.is_active))).scalars().all()
+    for routine in routines:
+        if weekday_str in [w.value for w in routine.weekdays]:
+            r_start = datetime.combine(target_date, routine.start_time)
+            if r_start.tzinfo is None:
+                r_start = r_start.replace(tzinfo=timezone.utc)
+            r_end = r_start + timedelta(minutes=routine.duration)
+            obstacles.append((r_start, r_end))
+    return obstacles
+
+
+async def _get_scheduled_task_obstacles(db: AsyncSession, target_date: datetime.date, before_time: datetime | None = None) -> list[tuple[datetime, datetime]]:
+    """Fetches scheduled tasks for a given date. If before_time is set, only fetches tasks scheduled before that time."""
+    query = select(models.Task).filter(models.Task.scheduled_date == target_date).filter(models.Task.status == models.Status.scheduled)
+    if before_time:
+        query = query.filter(models.Task.scheduled_start < before_time)
+
+    tasks = (await db.execute(query)).scalars().all()
+    obstacles = []
+    for pt in tasks:
+        p_start = pt.scheduled_start
+        p_end = p_start + timedelta(minutes=pt.estimated_duration)
+        obstacles.append((p_start, p_end))
+    return obstacles
+
+
+async def _get_sleep_boundary(db: AsyncSession, target_date: datetime.date) -> datetime:
+    """Calculates the sleep boundary datetime for a given date based on DailySchedule or UserProfile defaults."""
+    daily_schedule = await db.get(models.DailySchedule, target_date)
+    if daily_schedule:
+        sleep_time = daily_schedule.sleep_start
+    else:
+        user_profile = await db.get(models.UserProfile, 1)
+        if not user_profile:
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="User profile not found. Cannot determine sleep bounds.")
+        sleep_time = user_profile.default_sleep_start
+
+    sleep_dt = datetime.combine(target_date, sleep_time)
+    if sleep_dt.tzinfo is None:
+        sleep_dt = sleep_dt.replace(tzinfo=timezone.utc)
+
+    # Handle if sleep time crosses midnight
+    if sleep_time.hour < 12:
+        sleep_dt += timedelta(days=1)
+
+    return sleep_dt
+
+
 async def wrap_task(db: AsyncSession, task_create: schemas.TaskCreate) -> list[models.Task]:
     """
     Schedules a new task by wrapping it around existing Hard Routines AND Scheduled Tasks.
@@ -75,28 +127,9 @@ async def wrap_task(db: AsyncSession, task_create: schemas.TaskCreate) -> list[m
     # Gather obstacles (Hard Routines & Scheduled Tasks)
     requested_start = task_create.scheduled_start
     target_date = requested_start.date()
-    weekday_str = requested_start.strftime("%a").lower()
 
-    obstacles = []
-
-    # Get Hard Routines for this weekday
-    routines = (await db.execute(select(models.HardRoutine).filter(models.HardRoutine.is_active))).scalars().all()
-
-    for routine in routines:
-        if weekday_str in [w.value for w in routine.weekdays]:
-            r_start = datetime.combine(target_date, routine.start_time)
-            if r_start.tzinfo is None:
-                r_start = r_start.replace(tzinfo=timezone.utc)
-            r_end = r_start + timedelta(minutes=routine.duration)
-            obstacles.append((r_start, r_end))
-
-    # Get Scheduled Tasks for the day
-    scheduled_tasks = (await db.execute(select(models.Task).filter(models.Task.scheduled_date == target_date).filter(models.Task.status == models.Status.scheduled))).scalars().all()
-
-    for st_task in scheduled_tasks:
-        st_start = st_task.scheduled_start
-        st_end = st_start + timedelta(minutes=st_task.estimated_duration)
-        obstacles.append((st_start, st_end))
+    obstacles = await _get_hard_routine_obstacles(db, target_date)
+    obstacles.extend(await _get_scheduled_task_obstacles(db, target_date))
 
     # 3. Gap-Filling Loop using the helper
     parts = calculate_free_blocks(requested_start, task_create.estimated_duration, obstacles)
@@ -159,38 +192,13 @@ async def shift_tasks(db: AsyncSession, shift_from_time: datetime, shift_amount_
         return []
 
     target_date = shift_from_time.date()
-    weekday_str = shift_from_time.strftime("%a").lower()
 
-    # 1. Fetch user's sleep_start for the day to check for overflow (we need to set default for sleep time in schema maybe)
-    daily_schedule = await db.get(models.DailySchedule, target_date)
-    if daily_schedule:
-        sleep_time = daily_schedule.sleep_start
-    else:
-        # Fallback to default
-        user_profile = await db.get(models.UserProfile, 1)
-        if not user_profile:
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="User profile not found. Cannot determine sleep bounds.")
-        sleep_time = user_profile.default_sleep_start
+    # 1. Fetch user's sleep_start for the day to check for overflow
+    sleep_dt = await _get_sleep_boundary(db, target_date)
 
-    sleep_dt = datetime.combine(target_date, sleep_time)
-
-    if sleep_dt.tzinfo is None:
-        sleep_dt = sleep_dt.replace(tzinfo=timezone.utc)
-
-    # Handle if sleep time crosses midnight
-    if sleep_time.hour < 12:
-        sleep_dt += timedelta(days=1)
-
-    # 2. Gather Hard Routines (Immovable Obstacles)
-    base_obstacles = []
-    routines = (await db.execute(select(models.HardRoutine).filter(models.HardRoutine.is_active))).scalars().all()
-    for routine in routines:
-        if weekday_str in [w.value for w in routine.weekdays]:
-            r_start = datetime.combine(target_date, routine.start_time)
-            if r_start.tzinfo is None:
-                r_start = r_start.replace(tzinfo=timezone.utc)
-            r_end = r_start + timedelta(minutes=routine.duration)
-            base_obstacles.append((r_start, r_end))
+    # 2. Gather Hard Routines (Immovable Obstacles) and Prior Tasks
+    base_obstacles = await _get_hard_routine_obstacles(db, target_date)
+    base_obstacles.extend(await _get_scheduled_task_obstacles(db, target_date, before_time=shift_from_time))
 
     # 3. Gather Scheduled Tasks to Shift
     query = (
