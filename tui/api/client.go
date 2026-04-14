@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -23,7 +24,7 @@ func NewClient(baseURL string) *Client {
 	}
 }
 
-func (c *Client) doRequest(method, path string, body interface{}) ([]byte, error) {
+func (c *Client) doRequest(ctx context.Context, method, path string, body interface{}) ([]byte, error) {
 	var reqBody *bytes.Reader
 	if body != nil {
 		b, err := json.Marshal(body)
@@ -35,7 +36,7 @@ func (c *Client) doRequest(method, path string, body interface{}) ([]byte, error
 		reqBody = bytes.NewReader(nil)
 	}
 
-	req, err := http.NewRequest(method, c.BaseURL+path, reqBody)
+	req, err := http.NewRequestWithContext(ctx, method, c.BaseURL+path, reqBody)
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
@@ -62,8 +63,8 @@ func (c *Client) doRequest(method, path string, body interface{}) ([]byte, error
 
 // User Profile
 
-func (c *Client) GetUser() (*UserProfile, error) {
-	resp, err := c.doRequest("GET", "/user/", nil)
+func (c *Client) GetUser(ctx context.Context) (*UserProfile, error) {
+	resp, err := c.doRequest(ctx, "GET", "/user/", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -74,8 +75,8 @@ func (c *Client) GetUser() (*UserProfile, error) {
 	return &profile, nil
 }
 
-func (c *Client) CreateUser(profile *UserProfile) (*UserProfile, error) {
-	resp, err := c.doRequest("POST", "/user/", profile)
+func (c *Client) CreateUser(ctx context.Context, profile *UserProfile) (*UserProfile, error) {
+	resp, err := c.doRequest(ctx, "POST", "/user/", profile)
 	if err != nil {
 		return nil, err
 	}
@@ -88,8 +89,8 @@ func (c *Client) CreateUser(profile *UserProfile) (*UserProfile, error) {
 
 // Task Categories
 
-func (c *Client) GetTaskCategories() ([]TaskCategory, error) {
-	resp, err := c.doRequest("GET", "/task-categories/", nil)
+func (c *Client) GetTaskCategories(ctx context.Context) ([]TaskCategory, error) {
+	resp, err := c.doRequest(ctx, "GET", "/task-categories/", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -100,8 +101,8 @@ func (c *Client) GetTaskCategories() ([]TaskCategory, error) {
 	return categories, nil
 }
 
-func (c *Client) CreateTaskCategory(category *TaskCategory) (*TaskCategory, error) {
-	resp, err := c.doRequest("POST", "/task-categories/", category)
+func (c *Client) CreateTaskCategory(ctx context.Context, category *TaskCategory) (*TaskCategory, error) {
+	resp, err := c.doRequest(ctx, "POST", "/task-categories/", category)
 	if err != nil {
 		return nil, err
 	}
@@ -112,8 +113,8 @@ func (c *Client) CreateTaskCategory(category *TaskCategory) (*TaskCategory, erro
 	return &created, nil
 }
 
-func (c *Client) UpdateTaskCategory(id int, category *TaskCategory) (*TaskCategory, error) {
-	resp, err := c.doRequest("PATCH", fmt.Sprintf("/task-categories/%d", id), category)
+func (c *Client) UpdateTaskCategory(ctx context.Context, id int, category *TaskCategory) (*TaskCategory, error) {
+	resp, err := c.doRequest(ctx, "PATCH", fmt.Sprintf("/task-categories/%d", id), category)
 	if err != nil {
 		return nil, err
 	}
@@ -124,15 +125,15 @@ func (c *Client) UpdateTaskCategory(id int, category *TaskCategory) (*TaskCatego
 	return &updated, nil
 }
 
-func (c *Client) DeleteTaskCategory(id int) error {
-	_, err := c.doRequest("DELETE", fmt.Sprintf("/task-categories/%d", id), nil)
+func (c *Client) DeleteTaskCategory(ctx context.Context, id int) error {
+	_, err := c.doRequest(ctx, "DELETE", fmt.Sprintf("/task-categories/%d", id), nil)
 	return err
 }
 
 // Hard Routines
 
-func (c *Client) GetHardRoutines() ([]HardRoutine, error) {
-	resp, err := c.doRequest("GET", "/hard-routines/", nil)
+func (c *Client) GetHardRoutines(ctx context.Context) ([]HardRoutine, error) {
+	resp, err := c.doRequest(ctx, "GET", "/hard-routines/", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -143,8 +144,8 @@ func (c *Client) GetHardRoutines() ([]HardRoutine, error) {
 	return routines, nil
 }
 
-func (c *Client) CreateHardRoutine(routine *HardRoutine) (*HardRoutine, error) {
-	resp, err := c.doRequest("POST", "/hard-routines/", routine)
+func (c *Client) CreateHardRoutine(ctx context.Context, routine *HardRoutine) (*HardRoutine, error) {
+	resp, err := c.doRequest(ctx, "POST", "/hard-routines/", routine)
 	if err != nil {
 		return nil, err
 	}
@@ -155,8 +156,8 @@ func (c *Client) CreateHardRoutine(routine *HardRoutine) (*HardRoutine, error) {
 	return &created, nil
 }
 
-func (c *Client) UpdateHardRoutine(id int, routine *HardRoutine) (*HardRoutine, error) {
-	resp, err := c.doRequest("PATCH", fmt.Sprintf("/hard-routines/%d", id), routine)
+func (c *Client) UpdateHardRoutine(ctx context.Context, id int, routine *HardRoutine) (*HardRoutine, error) {
+	resp, err := c.doRequest(ctx, "PATCH", fmt.Sprintf("/hard-routines/%d", id), routine)
 	if err != nil {
 		return nil, err
 	}
@@ -167,15 +168,15 @@ func (c *Client) UpdateHardRoutine(id int, routine *HardRoutine) (*HardRoutine, 
 	return &updated, nil
 }
 
-func (c *Client) DeleteHardRoutine(id int) error {
-	_, err := c.doRequest("DELETE", fmt.Sprintf("/hard-routines/%d", id), nil)
+func (c *Client) DeleteHardRoutine(ctx context.Context, id int) error {
+	_, err := c.doRequest(ctx, "DELETE", fmt.Sprintf("/hard-routines/%d", id), nil)
 	return err
 }
 
 // Tasks
 
-func (c *Client) GetTasks() ([]Task, error) {
-	resp, err := c.doRequest("GET", "/tasks/", nil)
+func (c *Client) GetTasks(ctx context.Context) ([]Task, error) {
+	resp, err := c.doRequest(ctx, "GET", "/tasks/", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -186,8 +187,8 @@ func (c *Client) GetTasks() ([]Task, error) {
 	return tasks, nil
 }
 
-func (c *Client) CreateTask(task *Task) (*Task, error) {
-	resp, err := c.doRequest("POST", "/tasks/", task)
+func (c *Client) CreateTask(ctx context.Context, task *Task) (*Task, error) {
+	resp, err := c.doRequest(ctx, "POST", "/tasks/", task)
 	if err != nil {
 		return nil, err
 	}
@@ -198,8 +199,8 @@ func (c *Client) CreateTask(task *Task) (*Task, error) {
 	return &created, nil
 }
 
-func (c *Client) UpdateTask(id int, task *Task) (*Task, error) {
-	resp, err := c.doRequest("PATCH", fmt.Sprintf("/tasks/%d", id), task)
+func (c *Client) UpdateTask(ctx context.Context, id int, task *Task) (*Task, error) {
+	resp, err := c.doRequest(ctx, "PATCH", fmt.Sprintf("/tasks/%d", id), task)
 	if err != nil {
 		return nil, err
 	}
@@ -210,15 +211,15 @@ func (c *Client) UpdateTask(id int, task *Task) (*Task, error) {
 	return &updated, nil
 }
 
-func (c *Client) DeleteTask(id int) error {
-	_, err := c.doRequest("DELETE", fmt.Sprintf("/tasks/%d", id), nil)
+func (c *Client) DeleteTask(ctx context.Context, id int) error {
+	_, err := c.doRequest(ctx, "DELETE", fmt.Sprintf("/tasks/%d", id), nil)
 	return err
 }
 
-// Wrap (auto-schedule)
+// Wrap
 
-func (c *Client) WrapTask(req *WrapTaskRequest) ([]Task, error) {
-	resp, err := c.doRequest("POST", "/tasks/wrap", req)
+func (c *Client) WrapTask(ctx context.Context, req *WrapTaskRequest) ([]Task, error) {
+	resp, err := c.doRequest(ctx, "POST", "/tasks/wrap", req)
 	if err != nil {
 		return nil, err
 	}
@@ -231,8 +232,8 @@ func (c *Client) WrapTask(req *WrapTaskRequest) ([]Task, error) {
 
 // Shift
 
-func (c *Client) ShiftTasks(req *ShiftTasksRequest) ([]Task, error) {
-	resp, err := c.doRequest("POST", "/tasks/shift", req)
+func (c *Client) ShiftTasks(ctx context.Context, req *ShiftTasksRequest) ([]Task, error) {
+	resp, err := c.doRequest(ctx, "POST", "/tasks/shift", req)
 	if err != nil {
 		return nil, err
 	}
