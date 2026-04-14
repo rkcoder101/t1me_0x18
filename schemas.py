@@ -159,3 +159,16 @@ class DailyScheduleUpdate(BaseModel):
 
 class DailyScheduleResponse(DailyScheduleBase):
     model_config = ConfigDict(from_attributes=True)
+
+
+class ShiftTasksRequest(BaseModel):
+    shift_from_time: datetime
+    shift_amount_minutes: int = Field(gt=0)
+    @field_validator("shift_from_time")
+    @classmethod
+    def check_start_time(cls, v: datetime | None) -> datetime | None:
+        if v is not None:
+            now = datetime.now(timezone.utc)
+            if v < now:
+                raise ValueError("Scheduled start time cannot be in the past.")
+        return v

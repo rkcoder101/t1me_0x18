@@ -20,8 +20,10 @@ async def create_task_category(db: AsyncSession, category: schemas.TaskCategoryC
     except IntegrityError as e:
         await db.rollback()
         if "unique constraint" in str(e.orig).lower():
-            raise HTTPException(status_code=400, detail=f"Task Category with name {db_category.name} already exists.")
-        raise HTTPException(status_code=400, detail="Database constraint error.")
+            raise HTTPException(
+                status_code=400, detail=f"Task Category with name {db_category.name} already exists.")
+        raise HTTPException(
+            status_code=400, detail="Database constraint error.")
 
 
 async def get_task_categories(db: AsyncSession, skip: int = 0, limit: int = 100) -> list[models.TaskCategory]:
@@ -48,8 +50,10 @@ async def update_task_category(db: AsyncSession, category_id: int, category_upda
         await db.rollback()
         name = update_data.get("name", None)
         if "unique constraint" in str(e.orig).lower() and name:
-            raise HTTPException(status_code=400, detail=f"Task Category with name {name} already exists.")
-        raise HTTPException(status_code=400, detail="Database constraint error.")
+            raise HTTPException(
+                status_code=400, detail=f"Task Category with name {name} already exists.")
+        raise HTTPException(
+            status_code=400, detail="Database constraint error.")
 
 
 async def delete_task_category(db: AsyncSession, category_id: int) -> bool:
@@ -82,16 +86,19 @@ async def check_hard_routine_conflicts(db: AsyncSession, weekdays: set[models.We
         if any(w in existing_weekdays for w in weekday_values):
             existing_start_dt = datetime.combine(today, existing.start_time)
             if _time_overlaps(routine_start_dt, duration, existing_start_dt, existing.duration):
-                warnings.append(f"Hard routine overlaps with existing active routine '{existing.name}'.")
+                warnings.append(
+                    f"Hard routine overlaps with existing active routine '{existing.name}'.")
 
     # Check overlaps with scheduled Tasks
     tasks = (await db.execute(select(models.Task))).scalars().all()
     for task in tasks:
         task_day = task.scheduled_start.strftime("%a").lower()
         if task_day in weekday_values:
-            task_time_start = datetime.combine(today, task.scheduled_start.time())
+            task_time_start = datetime.combine(
+                today, task.scheduled_start.time())
             if _time_overlaps(routine_start_dt, duration, task_time_start, task.estimated_duration):
-                warnings.append(f"Hard routine overlaps with existing task '{task.title}' on {task_day.capitalize()}")
+                warnings.append(
+                    f"Hard routine overlaps with existing task '{task.title}' on {task_day.capitalize()}")
 
     return warnings
 
@@ -99,7 +106,8 @@ async def check_hard_routine_conflicts(db: AsyncSession, weekdays: set[models.We
 async def create_hard_routine(db: AsyncSession, routine: schemas.HardRoutineCreate) -> models.HardRoutine:
     warnings = await check_hard_routine_conflicts(db, routine.weekdays, routine.start_time, routine.duration)
     if warnings:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail={"message": "Scheduling conflict detected for hard routine.", "warnings": warnings})
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail={
+                            "message": "Scheduling conflict detected for hard routine.", "warnings": warnings})
 
     db_routine = models.HardRoutine(**routine.model_dump())
     db.add(db_routine)
@@ -110,8 +118,10 @@ async def create_hard_routine(db: AsyncSession, routine: schemas.HardRoutineCrea
     except IntegrityError as e:
         await db.rollback()
         if "unique constraint" in str(e.orig).lower():
-            raise HTTPException(status_code=400, detail=f"Hard Routine with name {db_routine.name} already exists.")
-        raise HTTPException(status_code=400, detail="Database constraint error.")
+            raise HTTPException(
+                status_code=400, detail=f"Hard Routine with name {db_routine.name} already exists.")
+        raise HTTPException(
+            status_code=400, detail="Database constraint error.")
 
 
 async def get_hard_routines(db: AsyncSession, skip: int = 0, limit: int = 100) -> list[models.HardRoutine]:
@@ -139,7 +149,8 @@ async def update_hard_routine(db: AsyncSession, hard_routine_id: int, routine_up
     if new_is_active:
         warnings = await check_hard_routine_conflicts(db, new_weekdays, new_start_time, new_duration, exclude_routine_id=hard_routine_id)
         if warnings:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail={"message": "Scheduling conflict detected for hard routine update.", "warnings": warnings})
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail={
+                                "message": "Scheduling conflict detected for hard routine update.", "warnings": warnings})
 
     for key, value in update_data.items():
         setattr(db_routine, key, value)
@@ -151,17 +162,19 @@ async def update_hard_routine(db: AsyncSession, hard_routine_id: int, routine_up
         await db.rollback()
         name = update_data.get("name", None)
         if "unique constraint" in str(e.orig).lower() and name:
-            raise HTTPException(status_code=400, detail=f"Routine with name {name} already exists.")
+            raise HTTPException(
+                status_code=400, detail=f"Routine with name {name} already exists.")
 
-        raise HTTPException(status_code=400, detail="Database constraint error.")
+        raise HTTPException(
+            status_code=400, detail="Database constraint error.")
 
 
 async def delete_hard_routine(db: AsyncSession, hard_routine_id: int) -> bool:
-    hard_routine = db.get(models.HardRoutine, hard_routine_id)
+    hard_routine = await db.get(models.HardRoutine, hard_routine_id)
     if not hard_routine:
         return False
     await db.delete(hard_routine)
-    db.commit()
+    await db.commit()
     return True
 
     # Task CRUD and Scheduling Logic
@@ -179,16 +192,19 @@ async def check_schedule_conflicts(db: AsyncSession, scheduled_start: datetime, 
     warnings = []
     scheduled_date_val = scheduled_start.date()
 
-    query = select(models.Task).filter(models.Task.scheduled_date == scheduled_date_val)
+    query = select(models.Task).filter(
+        models.Task.scheduled_date == scheduled_date_val)
     if exclude_task_id:
         query = query.filter(models.Task.id != exclude_task_id)
 
     tasks_on_day = (await db.execute(query)).scalars().all()
 
     for task in tasks_on_day:
-        task_end = task.scheduled_start + timedelta(minutes=task.estimated_duration)
+        task_end = task.scheduled_start + \
+            timedelta(minutes=task.estimated_duration)
         if _time_overlaps(scheduled_start, estimated_duration, task.scheduled_start, task.estimated_duration):
-            warnings.append(f"Task overlaps with existing task '{task.title}' ({task.scheduled_start.strftime('%H:%M')} - {task_end.strftime('%H:%M')}).")
+            warnings.append(
+                f"Task overlaps with existing task '{task.title}' ({task.scheduled_start.strftime('%H:%M')} - {task_end.strftime('%H:%M')}).")
 
     # Check overlaps with Hard Routines
     weekday_str = scheduled_start.strftime("%a").lower()
@@ -197,9 +213,11 @@ async def check_schedule_conflicts(db: AsyncSession, scheduled_start: datetime, 
     for routine in routines:
         if weekday_str in [w.value for w in routine.weekdays]:
             # Convert routine start_time to datetime on the same day
-            routine_start = datetime.combine(scheduled_date_val, routine.start_time)
+            routine_start = datetime.combine(
+                scheduled_date_val, routine.start_time)
             if _time_overlaps(scheduled_start, estimated_duration, routine_start, routine.duration):
-                warnings.append(f"Task overlaps with hard routine '{routine.name}'. You might not be able to do the routine at all. Please reschedule ")
+                warnings.append(
+                    f"Task overlaps with hard routine '{routine.name}'. You might not be able to do the routine at all. Please reschedule ")
 
     return warnings
 
@@ -260,7 +278,8 @@ async def update_task(db: AsyncSession, task_id: int, task_update: schemas.TaskU
 
     # Check overlap if schedule changes
     new_start = update_data.get("scheduled_start", db_task.scheduled_start)
-    new_duration = update_data.get("estimated_duration", db_task.estimated_duration)
+    new_duration = update_data.get(
+        "estimated_duration", db_task.estimated_duration)
 
     warnings = await check_schedule_conflicts(db, new_start, new_duration, exclude_task_id=task_id)
     if warnings:
@@ -290,3 +309,13 @@ async def delete_task(db: AsyncSession, task_id: int) -> bool:
     await db.delete(db_task)
     await db.commit()
     return True
+
+async def create_user(db: AsyncSession, user: schemas.UserProfileCreate) -> models.UserProfile:
+    db_user = models.UserProfile(**user.model_dump())
+    db.add(db_user)
+    try:
+        await db.commit()
+        await db.refresh(db_user)
+        return db_user
+    except IntegrityError as e:        
+        raise HTTPException(status_code=400, detail=f"Database constraint error: {e}")

@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 import crud
 import schemas
+import scheduling
 from database import get_db
 
 app = FastAPI()
@@ -108,3 +109,27 @@ async def delete_task(task_id: int, db: AsyncSession = Depends(get_db)):
     success = await crud.delete_task(db=db, task_id=task_id)
     if not success:
         raise HTTPException(status_code=404, detail="Task not found")
+
+# User-Profile endpoints
+@app.post("/user/",response_model=schemas.UserProfileCreate)
+async def create_user(user: schemas.UserProfileCreate, db: AsyncSession=Depends(get_db)):
+    return await crud.create_user(db,user)
+    
+# Advanced Scheduling Endpoints
+
+@app.post("/tasks/wrap", response_model=list[schemas.TaskResponse], status_code=status.HTTP_201_CREATED)
+async def wrap_task_endpoint(task: schemas.TaskCreate, db: AsyncSession = Depends(get_db)):
+    """
+    Schedules a new task by wrapping it around existing Hard Routines and Scheduled Tasks. Automatically splits the task if it encounters obstacles.
+    """
+    return await scheduling.wrap_task(db=db, task_create=task)
+
+
+@app.post("/tasks/shift", response_model=list[schemas.TaskResponse])
+async def shift_tasks_endpoint(shift_req: schemas.ShiftTasksRequest, db: AsyncSession = Depends(get_db)):
+    """
+    Shifts all scheduled tasks forward. Will automatically wrap (split) tasks
+    if the shift causes them to collide with Hard Routines or other shifted tasks.
+    Raises a 400 error if tasks overflow past the user's sleep time.
+    """
+    return await scheduling.shift_tasks(db=db, shift_from_time=shift_req.shift_from_time, shift_amount_minutes=shift_req.shift_amount_minutes)
