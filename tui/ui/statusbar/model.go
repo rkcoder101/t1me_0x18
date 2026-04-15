@@ -16,21 +16,17 @@ func New() Model {
 }
 
 func (m Model) View() string {
-	stats := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#999999")).
-		Render(
-			m.StyleStats(),
-		)
-
-	hints := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#666666")).
-		Render(
-			m.StyleHints(),
-		)
+	content := lipgloss.JoinHorizontal(
+		lipgloss.Left,
+		m.StyleStats(),
+		"   ", 
+		m.StyleHints(),
+	)
 
 	return lipgloss.NewStyle().
 		Width(m.Width).
-		Render(stats + hints)
+		Align(lipgloss.Center).
+		Render(content)
 }
 
 func (m Model) StyleStats() string {
@@ -56,9 +52,7 @@ func (m Model) RenderOverdue() string {
 }
 
 func (m Model) StyleHints() string {
-	return lipgloss.NewStyle().
-		Align(lipgloss.Right).
-		Render("[/] command  [?] help")
+	return "[/] command  [?] help"
 }
 
 func (m Model) UpdateWidth(width int) Model {
