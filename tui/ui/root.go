@@ -2,9 +2,10 @@ package ui
 
 import (
 	"t1me-tui/api"
+	"t1me-tui/ui/promptinput"
 	"t1me-tui/ui/statusbar"
 
-	"github.com/charmbracelet/bubbletea"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -22,13 +23,15 @@ type Model struct {
 	width      int
 	height     int
 	client     *api.Client
+	prompt     promptinput.Model
 	statusBar  statusbar.Model
 }
 
 func New(client *api.Client) Model {
 	return Model{
-		activeView: ViewDashboard, // might need to change it to ViewOnboarding
+		activeView: ViewDashboard,
 		client:     client,
+		prompt:     promptinput.New(),
 		statusBar:  statusbar.New(),
 	}
 }
@@ -43,6 +46,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		m.statusBar = m.statusBar.UpdateWidth(msg.Width)
+		m.prompt = m.prompt.UpdateWidth(msg.Width)
 		return m, nil
 
 	case tea.KeyMsg:
@@ -57,18 +61,25 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.activeView = ViewTimer
 		case "4":
 			m.activeView = ViewForm
+		case "ctrl+space":
+			// TODO: Open command palette
 		}
+
+		m.prompt, _ = m.prompt.Update(msg)
 	}
 	return m, nil
 }
 
 func (m Model) View() string {
+	prompt := m.prompt.View()
 	view := m.renderActiveView()
 	statusBar := m.statusBar.View()
 
-	return lipgloss.NewStyle().
-		Height(m.height-1).
-		Render(view) + "\n" + statusBar
+	mainContent := lipgloss.NewStyle().
+		Height(m.height - 2). // -2 for prompt input and status bar
+		Render(view)
+
+	return mainContent + "\n" + prompt + "\n" + statusBar
 }
 
 func (m Model) renderActiveView() string {
