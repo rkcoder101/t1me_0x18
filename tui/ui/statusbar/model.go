@@ -19,7 +19,7 @@ func (m Model) View() string {
 	content := lipgloss.JoinHorizontal(
 		lipgloss.Left,
 		m.StyleStats(),
-		"   ", 
+		"   ",
 		m.StyleHints(),
 	)
 
@@ -52,7 +52,7 @@ func (m Model) RenderOverdue() string {
 }
 
 func (m Model) StyleHints() string {
-	return "[/] command  [?] help"
+	return "[ctrl+p] commands  [ctrl+f] AI prompt  [ctrl+c] quit  [esc] clear"
 }
 
 func (m Model) UpdateWidth(width int) Model {
