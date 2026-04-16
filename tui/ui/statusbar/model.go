@@ -19,7 +19,7 @@ func (m Model) View() string {
 	content := lipgloss.JoinHorizontal(
 		lipgloss.Left,
 		m.StyleStats(),
-		"   ",
+		"   ", 
 		m.StyleHints(),
 	)
 
