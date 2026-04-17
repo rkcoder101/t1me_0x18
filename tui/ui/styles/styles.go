@@ -1,41 +1,35 @@
-package config
+package styles
 
-import (
-	"os"
-	"path/filepath"
-
-	"github.com/charmbracelet/lipgloss"
-)
+import "github.com/charmbracelet/lipgloss"
 
 var (
-	StyleBase = lipgloss.NewStyle()
+	// Colors
+	Green       = lipgloss.Color("#7fff7f")
+	Amber       = lipgloss.Color("#ffb347")
+	Blue        = lipgloss.Color("#7eb8ff")
+	Red         = lipgloss.Color("#ff7e7e")
+	Text        = lipgloss.Color("#e8e8e8")
+	Dim         = lipgloss.Color("#666666")
+	Mid         = lipgloss.Color("#999999")
+	Bg          = lipgloss.Color("#0d0d0d")
+	BorderColor = lipgloss.Color("#2a2a2a")
 
-	StylePrompt = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("7fff7f")).
-			Render
-
-	StyleDim = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("666666")).
-			Render
-
-	StyleAmber = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("ffb347")).
-			Render
+	// Base Styles
+	StyleGreen = lipgloss.NewStyle().Foreground(Green)
+	StyleAmber = lipgloss.NewStyle().Foreground(Amber)
+	StyleBlue  = lipgloss.NewStyle().Foreground(Blue)
+	StyleRed   = lipgloss.NewStyle().Foreground(Red)
+	StyleText  = lipgloss.NewStyle().Foreground(Text)
+	StyleDim   = lipgloss.NewStyle().Foreground(Dim)
+	StyleMid   = lipgloss.NewStyle().Foreground(Mid)
+	StyleBg    = lipgloss.NewStyle().Background(Bg)
 
 	StyleBorder = lipgloss.NewStyle().
 			Border(lipgloss.NormalBorder()).
-			BorderForeground(lipgloss.Color("2a2a2a"))
+			BorderForeground(BorderColor)
 
 	StyleSelected = lipgloss.NewStyle().
-			Background(lipgloss.Color("222222")).
-			Foreground(lipgloss.Color("7fff7f"))
+			Background(lipgloss.Color("#1a1a1a")).
+			Foreground(Blue).
+			Bold(true)
 )
-
-func ConfigDir() string {
-	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".config", "scheduler")
-}
-
-func ConfigPath() string {
-	return filepath.Join(ConfigDir(), "config.toml")
-}

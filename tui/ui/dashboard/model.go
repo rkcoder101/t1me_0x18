@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"t1me-tui/api"
+	"t1me-tui/ui/styles"
 
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
@@ -35,7 +36,7 @@ type Model struct {
 func New(client *api.Client) Model {
 	s := spinner.New()
 	s.Spinner = spinner.Dot
-	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("7fff7f"))
+	s.Style = styles.StyleGreen
 
 	return Model{
 		client:  client,
@@ -97,12 +98,12 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		}
 
 		switch msg.String() {
-		case "up", "k":
+		case "up":
 			if m.cursor > 0 {
 				m.cursor--
 				m.skipNonSelectable(-1)
 			}
-		case "down", "j":
+		case "down":
 			if m.cursor < totalItems-1 {
 				m.cursor++
 				m.skipNonSelectable(1)
@@ -122,7 +123,7 @@ func (m *Model) skipNonSelectable(direction int) {
 
 	for m.cursor >= 0 && m.cursor < timelineLen {
 		item := m.data.Timeline[m.cursor]
-		if item.Type == api.TimelineRoutine || item.Type == api.TimelineGap {
+		if item.Type == api.TimelineGap {
 			m.cursor += direction
 		} else {
 			break
@@ -134,7 +135,7 @@ func (m *Model) skipNonSelectable(direction int) {
 		m.cursor = 0
 		for m.cursor < timelineLen {
 			item := m.data.Timeline[m.cursor]
-			if item.Type != api.TimelineRoutine && item.Type != api.TimelineGap {
+			if item.Type != api.TimelineGap {
 				break
 			}
 			m.cursor++
@@ -151,7 +152,7 @@ func (m Model) UpdateWidth(width int) Model {
 
 func (m Model) View() string {
 	if m.err != nil {
-		return lipgloss.NewStyle().Foreground(lipgloss.Color("#ff7e7e")).Render("Error: " + m.err.Error())
+		return styles.StyleRed.Render("Error: " + m.err.Error())
 	}
 
 	if m.loading {
@@ -165,12 +166,9 @@ func (m Model) View() string {
 	var b strings.Builder
 
 	// Header
-	headerStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#7fff7f"))
-	dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#666666"))
-
 	now := time.Now()
-	headerText := fmt.Sprintf("%s ─ %s", headerStyle.Render("Today"), dimStyle.Render(now.Format("Monday, Jan 02")))
-	timeText := lipgloss.NewStyle().Foreground(lipgloss.Color("#ffb347")).Render(now.Format("03:04 PM"))
+	headerText := fmt.Sprintf("%s %s %s", styles.StyleGreen.Render("Today"), styles.StyleDim.Render("─"), styles.StyleDim.Render(now.Format("Monday, Jan 02")))
+	timeText := styles.StyleAmber.Render(now.Format("03:04 PM"))
 
 	// Poor man's align right
 	spaces := m.width - lipgloss.Width(headerText) - lipgloss.Width(timeText)
@@ -182,7 +180,7 @@ func (m Model) View() string {
 	b.WriteString(strings.Repeat(" ", spaces))
 	b.WriteString(timeText)
 	b.WriteString("\n")
-	b.WriteString(dimStyle.Render(strings.Repeat("─", m.width)))
+	b.WriteString(styles.StyleDim.Render(strings.Repeat("─", m.width)))
 	b.WriteString("\n\n")
 
 	// Timeline
@@ -195,10 +193,8 @@ func (m Model) View() string {
 }
 
 func (m Model) renderTimelineItem(item api.TimelineItem, selected bool, now time.Time) string {
-	dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#666666"))
-
 	if item.Type == api.TimelineGap {
-		return dimStyle.Render(fmt.Sprintf("      %s", item.Title))
+		return styles.StyleDim.Render(fmt.Sprintf("      %s", item.Title))
 	}
 
 	timeStr := item.StartTime.Local().Format("15:04")
@@ -216,32 +212,44 @@ func (m Model) renderTimelineItem(item api.TimelineItem, selected bool, now time
 		prefix = "│ "
 	}
 	if isActive {
-		prefix = lipgloss.NewStyle().Foreground(lipgloss.Color("#7fff7f")).Render("► ")
+		prefix = styles.StyleGreen.Render("► ")
 	}
 
 	statusIcon := " "
 	if item.Status != nil && *item.Status == api.StatusCompleted {
-		statusIcon = dimStyle.Render("✓")
-		timeStr = dimStyle.Render(timeStr)
+		statusIcon = "✓"
+		if !selected {
+			statusIcon = styles.StyleDim.Render(statusIcon)
+			timeStr = styles.StyleDim.Render(timeStr)
+		}
 	}
 
 	title := item.Title
-	if item.Type == api.TimelineRoutine {
-		title = dimStyle.Render(title)
+	if item.Type == api.TimelineRoutine && !selected {
+		title = styles.StyleDim.Render(title)
 	}
 
 	cat := ""
 	if item.Type == api.TimelineRoutine {
-		cat = dimStyle.Render("[routine]")
+		cat = "[routine]"
+		if !selected {
+			cat = styles.StyleDim.Render(cat)
+		}
 	} else if item.CategoryName != nil {
 		cat = fmt.Sprintf("[%s]", *item.CategoryName)
 	}
 
 	dur := fmt.Sprintf("%dmin", item.Duration)
-	if item.Type == api.TimelineRoutine {
-		dur = dimStyle.Render(dur)
+	if item.Type == api.TimelineRoutine && !selected {
+		dur = styles.StyleDim.Render(dur)
 	}
 
-	// Format: prefix status time title [cat] dur
-	return fmt.Sprintf("%s %s  %s  %-25s %-10s %s", prefix, statusIcon, timeStr, title, cat, dur)
+	// Apply selected highlight
+	row := fmt.Sprintf("%s %s  %s  %-25s %-10s %s", prefix, statusIcon, timeStr, title, cat, dur)
+
+	if selected {
+		row = styles.StyleSelected.Render(row)
+	}
+
+	return row
 }

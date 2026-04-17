@@ -5,6 +5,7 @@ import (
 	"t1me-tui/ui/dashboard"
 	"t1me-tui/ui/promptinput"
 	"t1me-tui/ui/statusbar"
+	"t1me-tui/ui/styles"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -153,6 +154,7 @@ func (m Model) View() string {
 	content := lipgloss.NewStyle().
 		Height(contentHeight).
 		Width(m.width).
+		Background(lipgloss.Color("#0d0d0d")).
 		Render(view)
 
 	// If palette is shown, overlay it
@@ -161,7 +163,7 @@ func (m Model) View() string {
 		content = lipgloss.Place(m.width, contentHeight, lipgloss.Center, lipgloss.Center, paletteView)
 	}
 
-	return content + "\n" + prompt + "\n" + status
+	return content + "\n" + styles.StyleBg.Render(prompt) + "\n" + styles.StyleBg.Render(status)
 }
 
 func (m Model) renderActiveView() string {
