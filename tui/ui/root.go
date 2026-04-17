@@ -44,6 +44,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		m.statusBar = m.statusBar.UpdateWidth(msg.Width)
+		m.promptInput = m.promptInput.UpdateWidth(msg.Width)
 		return m, nil
 
 	case tea.KeyMsg:
@@ -98,7 +99,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+p":
 			m.showPalette = true
 			return m, nil
-		case "ctrl+s":
+		case "ctrl+f":
 			var cmd tea.Cmd
 			m.promptInput, cmd = m.promptInput.Focus()
 			return m, cmd
@@ -121,7 +122,10 @@ func (m Model) View() string {
 	prompt := m.promptInput.View()
 	status := m.statusBar.View()
 
-	contentHeight := m.height - 2
+	promptHeight := lipgloss.Height(prompt)
+    statusHeight := lipgloss.Height(status)
+	contentHeight := m.height - promptHeight - statusHeight
+
 	if contentHeight < 1 {
 		contentHeight = 1
 	}

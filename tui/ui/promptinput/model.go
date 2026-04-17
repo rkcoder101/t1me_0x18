@@ -1,7 +1,7 @@
 package promptinput
 
 import (
-	"github.com/charmbracelet/bubbles/textinput"
+	"github.com/charmbracelet/bubbles/textarea"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -14,17 +14,19 @@ var (
 )
 
 type Model struct {
-	input textinput.Model
+	input textarea.Model
 }
 
 func New() Model {
-	ti := textinput.New()
-	ti.Placeholder = "ask AI to schedule something..."
-	ti.PlaceholderStyle = placeholderStyle
-	ti.Prompt = "› "
-	ti.PromptStyle = promptStyle
-	ti.CharLimit = 500
-	return Model{input: ti}
+	ta := textarea.New()
+	ta.Placeholder = "ask AI to schedule something..."
+	ta.FocusedStyle.Placeholder = placeholderStyle
+	ta.Prompt = "› "
+	ta.FocusedStyle.Prompt = promptStyle
+	ta.ShowLineNumbers=false
+	ta.CharLimit = 500
+	ta.SetHeight(1)
+	return Model{input: ta}
 }
 
 func (m Model) IsFocused() bool { return m.input.Focused() }
@@ -44,6 +46,11 @@ func (m Model) Clear() Model {
 	return m
 }
 
+func (m Model) UpdateWidth(width int) Model {
+	m.input.SetWidth(width)
+	return m
+}
+
 func (m Model) Value() string { return m.input.Value() }
 
 func (m Model) View() string {
@@ -53,5 +60,12 @@ func (m Model) View() string {
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	var cmd tea.Cmd
 	m.input, cmd = m.input.Update(msg)
+	textWidth := m.input.Width() - 2 
+    if textWidth <= 0 { textWidth = 1 }
+	contentLen := len(m.input.Value())
+	lines := (contentLen + textWidth - 1) / textWidth
+    if lines < 1 { lines = 1 }
+    if lines > 3 { lines = 3 } // Cap it at 3 lines for now
+    m.input.SetHeight(lines)
 	return m, cmd
 }
