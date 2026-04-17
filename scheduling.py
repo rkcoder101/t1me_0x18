@@ -325,7 +325,7 @@ async def get_dashboard_today(db: AsyncSession) -> schemas.DashboardResponse:
     for task_obj, cat_name in all_tasks:
         task = task_obj
 
-        if task.status == models.Status.COMPLETED:
+        if task.status == models.Status.completed:
             stats_done += 1
         else:
             stats_remaining += 1

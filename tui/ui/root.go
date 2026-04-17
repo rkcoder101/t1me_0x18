@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"t1me-tui/api"
+	"t1me-tui/ui/dashboard"
 	"t1me-tui/ui/promptinput"
 	"t1me-tui/ui/statusbar"
 
@@ -18,24 +20,29 @@ const (
 )
 
 type Model struct {
+	client      *api.Client
 	activeView  ActiveView
 	width       int
 	height      int
+	showPalette bool
 	promptInput promptinput.Model
 	statusBar   statusbar.Model
-	showPalette bool
+	dashboard   dashboard.Model
 }
 
 func New() Model {
+	client := api.NewClient("http://localhost:8000") // TODO: read from config
 	return Model{
+		client:      client,
 		activeView:  ViewDashboard,
 		promptInput: promptinput.New(),
 		statusBar:   statusbar.New(),
+		dashboard:   dashboard.New(client),
 	}
 }
 
 func (m Model) Init() tea.Cmd {
-	return nil
+	return tea.Batch(m.dashboard.Init())
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -45,6 +52,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 		m.statusBar = m.statusBar.UpdateWidth(msg.Width)
 		m.promptInput = m.promptInput.UpdateWidth(msg.Width)
+		m.dashboard = m.dashboard.UpdateWidth(msg.Width)
 		return m, nil
 
 	case tea.KeyMsg:
@@ -112,6 +120,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "4":
 			m.activeView = ViewForm
 		}
+
+		if m.activeView == ViewDashboard {
+			var cmd tea.Cmd
+			m.dashboard, cmd = m.dashboard.Update(msg)
+			return m, cmd
+		}
+	}
+
+	if m.activeView == ViewDashboard {
+		var cmd tea.Cmd
+		m.dashboard, cmd = m.dashboard.Update(msg)
+		return m, cmd
 	}
 
 	return m, nil
@@ -123,7 +143,7 @@ func (m Model) View() string {
 	status := m.statusBar.View()
 
 	promptHeight := lipgloss.Height(prompt)
-    statusHeight := lipgloss.Height(status)
+	statusHeight := lipgloss.Height(status)
 	contentHeight := m.height - promptHeight - statusHeight
 
 	if contentHeight < 1 {
@@ -154,7 +174,7 @@ func (m Model) renderActiveView() string {
 	case ViewOnboarding:
 		return centered.Render("[Onboarding view placeholder]\n\nPress 2 for Dashboard")
 	case ViewDashboard:
-		return centered.Render("[Dashboard view placeholder]\n\nPress 1 for Onboarding\nPress 3 for Timer\nPress 4 for Form")
+		return m.dashboard.View()
 	case ViewTimer:
 		return centered.Render("[Timer view placeholder]\n\nPress 2 for Dashboard")
 	case ViewForm:

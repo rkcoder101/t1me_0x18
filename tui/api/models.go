@@ -20,7 +20,7 @@ const (
 	EnergyHigh   Energy = "H"
 
 	StatusPending    Status = "pending"
-	StatusInProgress Status = "in_progress"
+	StatusInProgress Status = "in-progress"
 	StatusCompleted  Status = "completed"
 	StatusSkipped    Status = "skipped"
 
@@ -85,6 +85,33 @@ type ShiftTasksRequest struct {
 type WrapTaskRequest struct {
 	TaskID int    `json:"task_id"`
 	Date   string `json:"date"` // YYYY-MM-DD format
+}
+
+type TimelineItemType string
+
+const (
+	TimelineTask    TimelineItemType = "task"
+	TimelineRoutine TimelineItemType = "routine"
+	TimelineGap     TimelineItemType = "gap"
+)
+
+type TimelineItem struct {
+	ID           *int             `json:"id,omitempty"`
+	Type         TimelineItemType `json:"type"`
+	Title        string           `json:"title"`
+	StartTime    time.Time        `json:"start_time"`
+	Duration     int              `json:"duration"` // minutes
+	CategoryName *string          `json:"category_name,omitempty"`
+	Status       *Status          `json:"status,omitempty"`
+	Priority     *int             `json:"priority,omitempty"`
+}
+
+type DashboardResponse struct {
+	Date           string         `json:"date"` // YYYY-MM-DD
+	Timeline       []TimelineItem `json:"timeline"`
+	StatsDone      int            `json:"stats_done"`
+	StatsRemaining int            `json:"stats_remaining"`
+	StatsOverdue   int            `json:"stats_overdue"`
 }
 
 type APIError struct {

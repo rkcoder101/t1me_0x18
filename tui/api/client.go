@@ -61,6 +61,20 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body interf
 	return respBody, nil
 }
 
+// Dashboard
+
+func (c *Client) GetDashboardToday(ctx context.Context) (*DashboardResponse, error) {
+	resp, err := c.doRequest(ctx, "GET", "/dashboard/today", nil)
+	if err != nil {
+		return nil, err
+	}
+	var dashboard DashboardResponse
+	if err := json.Unmarshal(resp, &dashboard); err != nil {
+		return nil, fmt.Errorf("unmarshal response: %w", err)
+	}
+	return &dashboard, nil
+}
+
 // User Profile
 
 func (c *Client) GetUser(ctx context.Context) (*UserProfile, error) {
