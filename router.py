@@ -111,10 +111,19 @@ async def delete_task(task_id: int, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Task not found")
 
 # User-Profile endpoints
-@app.post("/user/",response_model=schemas.UserProfileCreate)
-async def create_user(user: schemas.UserProfileCreate, db: AsyncSession=Depends(get_db)):
-    return await crud.create_user(db,user)
-    
+@app.post("/user/", response_model=schemas.UserProfileCreate)
+async def create_user(user: schemas.UserProfileCreate, db: AsyncSession = Depends(get_db)):
+    return await crud.create_user(db, user)
+
+# Other endpoints
+
+@app.get("/dashboard/today", response_model=schemas.DashboardResponse)
+async def get_dashboard_today(db: AsyncSession = Depends(get_db)):
+    """
+    Returns unified timeline data, stats, and unscheduled pool for today.
+    """
+    return await scheduling.get_dashboard_today(db=db)
+
 # Advanced Scheduling Endpoints
 
 @app.post("/tasks/wrap", response_model=list[schemas.TaskResponse], status_code=status.HTTP_201_CREATED)

@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException, status
+from sqlalchemy.exc import IntegrityError
 
 import models
 import schemas
@@ -298,3 +299,75 @@ async def shift_tasks(db: AsyncSession, shift_from_time: datetime, shift_amount_
         await db.refresh(t)
 
     return updated_and_created
+
+async def get_dashboard_today(db: AsyncSession) -> schemas.DashboardResponse:
+    now = datetime.now(timezone.utc)
+    today = now.date()
+
+    # 1. Fetch tasks scheduled for today
+    tasks_query = (
+        select(models.Task, models.TaskCategory.name.label("category_name"))
+        .outerjoin(models.TaskCategory, models.Task.category_id == models.TaskCategory.id)
+        .where(models.Task.scheduled_date == today)
+    )
+    try:
+        result = await db.execute(tasks_query)
+    except IntegrityError as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"{e}")
+
+    all_tasks = result.all()
+
+    timeline_items = []
+    stats_done = 0
+    stats_remaining = 0
+    stats_overdue = 0
+
+    for task_obj, cat_name in all_tasks:
+        task = task_obj
+
+        if task.status == models.Status.COMPLETED:
+            stats_done += 1
+        else:
+            stats_remaining += 1
+            if task.scheduled_start + timedelta(minutes=task.estimated_duration) < now:
+                stats_overdue += 1
+
+        timeline_items.append(
+            schemas.TimelineItem(
+                id=task.id,
+                type=schemas.TimelineItemType.TASK,
+                title=task.title,
+                start_time=task.scheduled_start,
+                duration=task.estimated_duration,
+                category_name=cat_name,
+                status=task.status,
+                priority=task.priority,
+            )
+        )
+
+    # 2. Fetch active hard routines for today
+    today_weekday = models.Weekday(now.strftime("%a").lower())
+    routines_query = select(models.HardRoutine).where(models.HardRoutine.is_active.is_(True)).where(models.HardRoutine.weekdays.any(today_weekday))
+    result = await db.execute(routines_query)
+    routines = result.scalars().all()
+
+    for routine in routines:
+        # Create a localized start time for today
+        dt = datetime.combine(today, routine.start_time).replace(tzinfo=timezone.utc)
+        timeline_items.append(schemas.TimelineItem(id=routine.id, type=schemas.TimelineItemType.ROUTINE, title=routine.name, start_time=dt, duration=routine.duration))
+
+    # 3. Sort by start_time
+    timeline_items.sort(key=lambda x: x.start_time)
+
+    # 4. Inject Gaps
+    final_timeline = []
+    for i, item in enumerate(timeline_items):
+        final_timeline.append(item)
+        if i < len(timeline_items) - 1:
+            next_item = timeline_items[i + 1]
+            end_time = item.start_time + timedelta(minutes=item.duration)
+            if next_item.start_time > end_time:
+                gap_duration = int((next_item.start_time - end_time).total_seconds() / 60)
+                final_timeline.append(schemas.TimelineItem(type=schemas.TimelineItemType.GAP, title=f"·· {gap_duration} min free ··", start_time=end_time, duration=gap_duration))
+
+    return schemas.DashboardResponse(date=today, timeline=final_timeline, stats_done=stats_done, stats_remaining=stats_remaining, stats_overdue=stats_overdue)

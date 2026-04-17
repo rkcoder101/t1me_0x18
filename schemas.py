@@ -1,5 +1,6 @@
 from datetime import date, datetime, time, timezone
-from pydantic import BaseModel, Field, ConfigDict, field_validator
+from enum import Enum
+from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
 
 from models import Energy, Flexibility, Status, Weekday
 
@@ -164,6 +165,7 @@ class DailyScheduleResponse(DailyScheduleBase):
 class ShiftTasksRequest(BaseModel):
     shift_from_time: datetime
     shift_amount_minutes: int = Field(gt=0)
+
     @field_validator("shift_from_time")
     @classmethod
     def check_start_time(cls, v: datetime | None) -> datetime | None:
@@ -172,3 +174,34 @@ class ShiftTasksRequest(BaseModel):
             if v < now:
                 raise ValueError("Scheduled start time cannot be in the past.")
         return v
+
+
+class TimelineItemType(str, Enum):
+    TASK = "task"
+    ROUTINE = "routine"
+    GAP = "gap"
+
+
+class TimelineItem(BaseModel):
+    id: int | None = None
+    type: TimelineItemType
+    title: str
+    start_time: datetime
+    duration: int
+    category_name: str | None = None
+    status: Status | None = None
+    priority: int | None = None
+
+    @model_validator(mode='after')
+    def set_routine_priority(self) -> 'TimelineItem':
+        if self.type == TimelineItemType.ROUTINE:
+            self.priority = 5
+        return self
+
+
+class DashboardResponse(BaseModel):
+    date: date
+    timeline: list[TimelineItem]
+    stats_done: int
+    stats_remaining: int
+    stats_overdue: int
