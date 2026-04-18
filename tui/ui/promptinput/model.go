@@ -3,15 +3,8 @@ package promptinput
 import (
 	"github.com/charmbracelet/bubbles/textarea"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
-var (
-	promptStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("7fff7f"))
-	placeholderStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("666666"))
-)
 
 type Model struct {
 	input textarea.Model
@@ -20,9 +13,7 @@ type Model struct {
 func New() Model {
 	ta := textarea.New()
 	ta.Placeholder = "ask AI to schedule something..."
-	ta.FocusedStyle.Placeholder = placeholderStyle
 	ta.Prompt = "› "
-	ta.FocusedStyle.Prompt = promptStyle
 	ta.ShowLineNumbers=false
 	ta.CharLimit = 500
 	ta.SetHeight(1)
