@@ -32,4 +32,16 @@ var (
 			Background(lipgloss.Color("#1a1a1a")).
 			Foreground(Blue).
 			Bold(true)
+
+	SelectedBackground = lipgloss.NewStyle().
+				Background(lipgloss.Color("#222222")).
+				Foreground(Green)
+
+	PaletteSelected = lipgloss.NewStyle().
+			Background(Green).
+			Foreground(lipgloss.Color("#0d0d0d")).
+			Bold(true)
+
+	PaletteNormal = lipgloss.NewStyle().
+			Foreground(Text)
 )

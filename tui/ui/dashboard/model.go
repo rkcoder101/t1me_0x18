@@ -197,7 +197,7 @@ func (m Model) renderTimelineItem(item api.TimelineItem, selected bool, now time
 		return styles.StyleDim.Render(fmt.Sprintf("      %s", item.Title))
 	}
 
-	timeStr := item.StartTime.Local().Format("15:04")
+	timeStr := item.StartTime.Format("15:04")
 
 	isActive := false
 	if item.Type == api.TimelineTask {

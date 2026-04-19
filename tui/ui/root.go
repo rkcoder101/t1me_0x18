@@ -3,6 +3,7 @@ package ui
 import (
 	"t1me-tui/api"
 	"t1me-tui/ui/dashboard"
+	"t1me-tui/ui/palette"
 	"t1me-tui/ui/promptinput"
 	"t1me-tui/ui/statusbar"
 
@@ -17,6 +18,7 @@ const (
 	ViewDashboard
 	ViewTimer
 	ViewForm
+	ViewStats
 )
 
 type Model struct {
@@ -28,16 +30,19 @@ type Model struct {
 	promptInput promptinput.Model
 	statusBar   statusbar.Model
 	dashboard   dashboard.Model
+	palette     palette.Model
 }
 
 func New() Model {
-	client := api.NewClient("http://localhost:8000") // TODO: read from config
+	client := api.NewClient("http://localhost:8000")
 	return Model{
 		client:      client,
 		activeView:  ViewDashboard,
+		showPalette: false,
 		promptInput: promptinput.New(),
 		statusBar:   statusbar.New(),
 		dashboard:   dashboard.New(client),
+		palette:     palette.New(),
 	}
 }
 
@@ -52,49 +57,42 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 		m.statusBar = m.statusBar.UpdateWidth(msg.Width)
 		m.promptInput = m.promptInput.UpdateWidth(msg.Width)
-		m.dashboard = m.dashboard.UpdateWidth(msg.Width)
-		return m, nil
+		m.palette = m.palette.UpdateWidth(msg.Width)
 
 	case tea.KeyMsg:
-		// Layer 1: Global Overrides (works from anywhere)
-		switch msg.String() {
-		case "ctrl+c":
-			return m, tea.Quit
-		case "ctrl+r":
-			// TODO: Force refresh from API
-			return m, nil
-		}
-
-		// Layer 2: Active Overlay (Palette)
+		// Palette overlay - intercept all keys before they reach the dashboard
 		if m.showPalette {
 			switch msg.String() {
 			case "esc":
 				m.showPalette = false
 				return m, nil
+			case "enter":
+				if cmd := m.palette.SelectedCommand(); cmd != nil {
+					m.showPalette = false
+					if cmd.Action == "quit" {
+						return m, tea.Quit
+					}
+					// TODO: Handle other commands (open forms, etc.)
+				}
+				m.showPalette = false
+				return m, nil
 			case "ctrl+p":
 				m.showPalette = false
 				return m, nil
+			default:
+				m.palette, _ = m.palette.Update(msg)
+				return m, nil
 			}
-			// TODO: Pass to palette model for navigation/selection
-			return m, nil
 		}
 
-		// Layer 3: Focused Element (AI Prompt Input)
+		// Handle prompt input focus
 		if m.promptInput.IsFocused() {
 			switch msg.String() {
 			case "esc":
 				m.promptInput = m.promptInput.Blur().Clear()
 				return m, nil
 			case "enter":
-				value := m.promptInput.Value()
-				if value != "" {
-					// TODO: Fire AI prompt submission via API
-					m.promptInput = m.promptInput.Clear().Blur()
-				}
-				return m, nil
-			case "ctrl+p":
-				m.promptInput = m.promptInput.Blur()
-				m.showPalette = true
+				m.promptInput = m.promptInput.Clear().Blur()
 				return m, nil
 			}
 			var cmd tea.Cmd
@@ -102,36 +100,30 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 
-		// Layer 4: Active View (Dashboard, Timer, etc.)
+		// Global keybindings
 		switch msg.String() {
+		case "ctrl+c":
+			return m, tea.Quit
+
 		case "ctrl+p":
 			m.showPalette = true
 			return m, nil
+
 		case "ctrl+f":
 			var cmd tea.Cmd
 			m.promptInput, cmd = m.promptInput.Focus()
 			return m, cmd
-		case "1":
-			m.activeView = ViewOnboarding
-		case "2":
-			m.activeView = ViewDashboard
-		case "3":
-			m.activeView = ViewTimer
-		case "4":
-			m.activeView = ViewForm
 		}
 
+		// Dashboard handles its own keys
 		if m.activeView == ViewDashboard {
-			var cmd tea.Cmd
-			m.dashboard, cmd = m.dashboard.Update(msg)
-			return m, cmd
+			m.dashboard, _ = m.dashboard.Update(msg)
 		}
 	}
 
+	// Always update dashboard in case of other messages like WindowSize
 	if m.activeView == ViewDashboard {
-		var cmd tea.Cmd
-		m.dashboard, cmd = m.dashboard.Update(msg)
-		return m, cmd
+		m.dashboard, _ = m.dashboard.Update(msg)
 	}
 
 	return m, nil
@@ -139,6 +131,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m Model) View() string {
 	view := m.renderActiveView()
+
+	// Overlay palette if active - use fixed small box centered
+	if m.showPalette {
+		paletteView := m.palette.View()
+		view = lipgloss.Place(m.width, m.height-2, lipgloss.Center, lipgloss.Center, paletteView)
+	}
+
 	prompt := m.promptInput.View()
 	status := m.statusBar.View()
 
@@ -155,12 +154,6 @@ func (m Model) View() string {
 		Width(m.width).
 		Render(view)
 
-	// If palette is shown, overlay it
-	if m.showPalette {
-		paletteView := m.renderPalette()
-		content = lipgloss.Place(m.width, contentHeight, lipgloss.Center, lipgloss.Center, paletteView)
-	}
-
 	return content + "\n" + prompt + "\n" + status
 }
 
@@ -172,25 +165,16 @@ func (m Model) renderActiveView() string {
 
 	switch m.activeView {
 	case ViewOnboarding:
-		return centered.Render("[Onboarding view placeholder]\n\nPress 2 for Dashboard")
+		return centered.Render("[Onboarding]")
 	case ViewDashboard:
 		return m.dashboard.View()
 	case ViewTimer:
-		return centered.Render("[Timer view placeholder]\n\nPress 2 for Dashboard")
+		return centered.Render("[Timer]")
 	case ViewForm:
-		return centered.Render("[Form view placeholder]\n\nPress 2 for Dashboard")
+		return centered.Render("[Form]")
+	case ViewStats:
+		return centered.Render("[Stats]")
 	default:
-		return centered.Render("[Unknown view]")
+		return centered.Render("[Unknown]")
 	}
-}
-
-func (m Model) renderPalette() string {
-	// Placeholder for command palette
-	box := lipgloss.NewStyle().
-		Border(lipgloss.NormalBorder()).
-		BorderForeground(lipgloss.Color("2a2a2a")).
-		Padding(1, 2).
-		Width(40)
-
-	return box.Render("[Command Palette - press esc to close]")
 }
